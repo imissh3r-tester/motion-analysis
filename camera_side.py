@@ -2,6 +2,7 @@
 import cv2
 import config
 import utils
+import time
 from benchmark import FPSMeter
 
 fps_meter_side = FPSMeter()
@@ -12,6 +13,8 @@ def gen_frames_side():
     pose = utils.make_pose_detector()
     
     while True:
+        global last_latency_ms
+        start_time = time.perf_counter()
         success, frame = cap.read()
         if not success:
             # Gửi frame rỗng nếu lỗi cam
@@ -75,7 +78,8 @@ def gen_frames_side():
             else:
                 st["posture_status"]["side"] = None
         fps_meter_side.tick()
-
+        end_time = time.perf_counter()
+        last_latency_ms = (end_time - start_time) * 1000.0
         ret, buffer = cv2.imencode('.jpg', frame)
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 def get_fps_side():

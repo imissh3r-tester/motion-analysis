@@ -71,6 +71,10 @@
     </div>
     
     <div id="statusMessage" style="color:#aaa; margin-bottom: 10px; font-weight:bold;">Sẵn sàng...</div>
+    
+    <div style="font-size: 24px; font-weight: bold; color: #00bcd4; margin-bottom: 15px; display: none;" id="timerDisplay">
+        ⏱️ Thời gian còn lại: <span id="timerText">00:00</span>
+    </div>
 
     <div class="control-panel">
         <input type="text" id="nameInput" placeholder="Tên Bé">
@@ -145,6 +149,10 @@
         }
     }
 
+    let sessionStartTime = null;
+    let sessionDuration = 0;
+    let timerInterval = null;
+
     function startSession() {
         const name = document.getElementById('nameInput').value;
         const age = document.getElementById('ageInput').value;
@@ -158,11 +166,37 @@
             document.getElementById('ageInput').disabled = true;
             document.getElementById('btnStart').style.display='none';
             document.getElementById('btnStop').style.display='inline-block';
+            document.getElementById('timerDisplay').style.display = 'block';
             resetCounts();
+            
+            sessionStartTime = Date.now();
+            sessionDuration = parseInt(dur) * 60 * 1000; // Chuyển phút sang mili giây
+            startCountdown();
         });
     }
 
+    function startCountdown() {
+        if(timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const elapsed = Date.now() - sessionStartTime;
+            const remaining = Math.max(0, sessionDuration - elapsed);
+            
+            const totalSeconds = Math.floor(remaining / 1000);
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            
+            document.getElementById('timerText').innerText = 
+                String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            
+            if(remaining <= 0) {
+                clearInterval(timerInterval);
+                finishSession();
+            }
+        }, 100);
+    }
+
     function finishSession() {
+        if(timerInterval) clearInterval(timerInterval);
         fetch('/stop_session', {method:'POST'}).then(res=>res.json()).then(d => {
             const sumErr = d.errors.neck + d.errors.back + d.errors.tilt + d.errors.close;
             alert(`KẾT THÚC!\n- Tổng lỗi: ${sumErr}`);
@@ -170,6 +204,7 @@
             document.getElementById('ageInput').disabled = false;
             document.getElementById('btnStart').style.display='inline-block';
             document.getElementById('btnStop').style.display='none';
+            document.getElementById('timerDisplay').style.display = 'none';
             loadHistory();
         });
     }

@@ -32,8 +32,22 @@ class ResourceMonitor(threading.Thread):
         self.running = True
 
     def run(self):
+        # initialize internal counters so first reading is meaningful
+        try:
+            self.process.cpu_percent(interval=None)
+        except Exception:
+            pass
+
         while self.running:
-            self.last_cpu = self.process.cpu_percent(interval=None)
+            # process.cpu_percent can exceed 100 when the process uses
+            # more than one CPU core (e.g. 179% means ~1.79 cores used).
+            # Normalize to overall CPU usage (0-100%) by dividing by cpu_count().
+            cpu = self.process.cpu_percent(interval=None)
+            try:
+                self.last_cpu = cpu / psutil.cpu_count()
+            except Exception:
+                self.last_cpu = cpu
+
             self.last_ram = self.process.memory_info().rss / 1024 / 1024
             time.sleep(self.interval)
 

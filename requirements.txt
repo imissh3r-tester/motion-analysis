@@ -1,0 +1,6 @@
+flask==3.0.0
+pywebview==5.0.11
+opencv-python==4.8.1.78
+mediapipe==0.10.9
+numpy==1.24.3
+psutil==5.9.6

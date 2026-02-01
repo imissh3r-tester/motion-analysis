@@ -1,15 +1,17 @@
 # app.py
-from flask import Flask, render_template, Response, jsonify, request
+from flask import Flask, render_template, Response, jsonify, request, send_from_directory
+import webview
+import threading
 import cv2
 import time
 import csv
 import os
 from datetime import datetime
-
 import config
 import utils
 import camera_front
 import camera_side
+from benchmark import ResourceMonitor, BenchmarkLogger
 
 app = Flask(__name__)
 LOG_FILE = 'nhat_ky_be_hoc.csv'
@@ -18,6 +20,10 @@ LOG_FILE = 'nhat_ky_be_hoc.csv'
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, 'w', newline='', encoding='utf-8-sig') as f:
         csv.writer(f).writerow(["Thời gian", "Tên Bé", "Tuổi", "Mục tiêu(p)", "Thực học(p)", "Tổng Lỗi", "Gù Cổ", "Gù Lưng", "Nghiêng Đầu", "Dí Mắt"])
+
+@app.route('/static/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype = 'image/vnd.microsoft.icon')
 
 @app.route('/start_session', methods=['POST'])
 def start_session():
@@ -134,5 +140,39 @@ def video_front(): return Response(camera_front.gen_frames_front(), mimetype='mu
 @app.route('/video_side')
 def video_side(): return Response(camera_side.gen_frames_side(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False, threaded=True, port=5000)
+def start_flask():
+    app.run(host = "127.0.0.1", port = 5000, debug = False, threaded = True, use_reloader = False)
+
+@app.route('/benchmark')
+def benchmark():
+    fps_front = camera_front.get_fps_front()
+    fps_side = camera_side.get_fps_side()
+    latency_front = camera_front.get_latency_front()
+    latency_side = camera_side.get_latency_side()
+    monitor.log(fps_front = fps_front, fps_side = fps_side, latency_front = latency_front, latency_side = latency_side)
+    return jsonify({
+        "fps_front": fps_front,
+        "fps_side": fps_side,
+        "cpu percent": monitor.last_cpu if monitor else None,
+        "ram_mb": monitor.last_ram if monitor else None,
+        "latency_front_ms": latency_front,
+        "latency_side_ms": latency_side,
+    })
+
+if __name__ == '__main__':
+    monitor = ResourceMonitor(interval = 1.0)
+    monitor.start()
+
+    logger = BenchmarkLogger(monitor = monitor, fps_front_cb=camera_front.get_fps_front, latency_front_cb=camera_front.get_latency_front, fps_side_cb=camera_side.get_fps_side, latency_side_cb=camera_side.get_latency_side, interval = 1.0)
+    logger.start()
+
+    t = threading.Thread(target=start_flask)
+    t.daemon = True
+    t.start()
+
+    time.sleep(0.75)
+    webview.create_window("AI Kids Monitor", "http://127.0.0.1:5000", width = 1200, height = 800)
+    webview.start()
+
+    logger.stop()
+    monitor.stop()

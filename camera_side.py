@@ -2,7 +2,10 @@
 import cv2
 import config
 import utils
+from benchmark import FPSMeter
 
+fps_meter_side = FPSMeter()
+last_latency_ms = 0.0
 def gen_frames_side():
     cap = cv2.VideoCapture(1) # Lưu ý ID Cam Side (0, 1 hoặc 2)
     cap.set(3, 1280); cap.set(4, 720)
@@ -71,6 +74,11 @@ def gen_frames_side():
                     cv2.putText(frame, f"OK (N:{int(neck_angle)} T:{int(torso_angle)})", (10, h-20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,0), 2)
             else:
                 st["posture_status"]["side"] = None
+        fps_meter_side.tick()
 
         ret, buffer = cv2.imencode('.jpg', frame)
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+def get_fps_side():
+    return fps_meter_side.get_fps()
+def get_latency_side():
+    return round(last_latency_ms, 2)

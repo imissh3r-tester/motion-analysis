@@ -149,7 +149,6 @@ def benchmark():
     fps_side = camera_side.get_fps_side()
     latency_front = camera_front.get_latency_front()
     latency_side = camera_side.get_latency_side()
-    monitor.log(fps_front = fps_front, fps_side = fps_side, latency_front = latency_front, latency_side = latency_side)
     return jsonify({
         "fps_front": fps_front,
         "fps_side": fps_side,
